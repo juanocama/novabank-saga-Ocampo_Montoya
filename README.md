@@ -1,5 +1,7 @@
 # NovaBank Saga
 
+video evidencia: https://youtu.be/Z_uHd1MkKhI
+
 NovaBank Saga es un simulador de transferencias bancarias distribuido. Su objetivo
 es mostrar cómo una operación que atraviesa varios microservicios puede mantener
 un resultado consistente sin depender de una transacción distribuida global.
