@@ -1,0 +1,25 @@
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+
+# Dependencias y artefactos de Node/Vite
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.tsbuildinfo
+coverage/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+**/.venv/
+
+# Logs y archivos del sistema
+*.log
+.DS_Store
+Thumbs.db

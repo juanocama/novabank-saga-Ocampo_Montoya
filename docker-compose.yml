@@ -1,0 +1,123 @@
+services:
+  frontend:
+    build: ./frontend
+    container_name: novabank-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+
+  rabbitmq:
+    restart: unless-stopped
+    image: rabbitmq:3-management
+    container_name: novabank-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # UI de administración (usuario/clave: guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 15s
+      start_period: 45s
+      retries: 8
+
+  prefect-server:
+    restart: unless-stopped
+    image: prefecthq/prefect:2.19-python3.11
+    container_name: novabank-prefect
+    command: prefect server start --host 0.0.0.0
+    ports:
+      - "4200:4200" # UI de Prefect
+    environment:
+      PREFECT_UI_URL: http://localhost:4200/api
+      PREFECT_API_URL: http://localhost:4200/api
+
+  api-gateway:
+    restart: unless-stopped
+    build: ./services/api-gateway
+    container_name: novabank-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      PREFECT_API_URL: http://prefect-server:4200/api
+      ORCHESTRATOR_URL: http://saga-orchestrator:8000
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      prefect-server:
+        condition: service_started
+      saga-orchestrator:
+        condition: service_started
+
+  account-service:
+    restart: unless-stopped
+    build: ./services/account-service
+    container_name: novabank-account
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DELAY_MS: 3000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  risk-service:
+    restart: unless-stopped
+    build: ./services/risk-service
+    container_name: novabank-risk
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DELAY_MS: 3000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  clearing-service:
+    restart: unless-stopped
+    build: ./services/clearing-service
+    container_name: novabank-clearing
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DELAY_MS: 3000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  saga-orchestrator:
+    restart: unless-stopped
+    build: ./saga-orchestrator
+    container_name: novabank-orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      prefect-server:
+        condition: service_started
+      account-service:
+        condition: service_started
+      risk-service:
+        condition: service_started
+      clearing-service:
+        condition: service_started
